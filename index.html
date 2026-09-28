@@ -1,646 +1,427 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Eclipse LEGO Drift & Stunt City</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
-      touch-action: manipulation;
-    }
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: #1a1a24;
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    }
-    #canvas-container {
-      width: 100%;
-      height: 100%;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zig Zag Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0d0d1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            color: white;
+            touch-action: none; /* Evita scroll no celular */
+        }
 
-    /* interface / HUD */
-    .ui-layer {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 15px;
-    }
+        canvas {
+            display: block;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0d0d1a 100%);
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.5);
+            border-radius: 10px;
+        }
 
-    .hud-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+        }
 
-    .hud-card {
-      background: rgba(0, 0, 0, 0.65);
-      backdrop-filter: blur(8px);
-      border: 2px solid rgba(255, 255, 255, 0.2);
-      border-radius: 12px;
-      padding: 10px 16px;
-      color: #fff;
-      font-weight: bold;
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    }
+        #score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 10px #8a2be2;
+        }
 
-    .btn {
-      background: rgba(255, 255, 255, 0.15);
-      color: #fff;
-      border: 2px solid rgba(255, 255, 255, 0.4);
-      padding: 12px 20px;
-      font-size: 15px;
-      font-weight: 800;
-      border-radius: 10px;
-      pointer-events: auto;
-      cursor: pointer;
-      transition: all 0.1s ease;
-      text-transform: uppercase;
-    }
-    .btn:active {
-      transform: scale(0.95);
-      background: rgba(255, 255, 255, 0.3);
-    }
+        #game-over {
+            position: absolute;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid #8a2be2;
+            box-shadow: 0 0 30px #8a2be2;
+        }
 
-    .btn-nitro {
-      background: linear-gradient(135deg, #ff0055 0%, #ff5500 100%);
-      border: 2px solid #ffff00;
-      box-shadow: 0 0 15px rgba(255, 85, 0, 0.6);
-    }
+        #game-over h1 {
+            margin: 0 0 10px 0;
+            color: #fff;
+        }
 
-    .btn-action {
-      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-      border: 2px solid #ffffff;
-    }
+        #game-over p {
+            margin: 5px 0;
+            color: #ccc;
+        }
 
-    .hud-bottom {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      width: 100%;
-    }
+        #restart-btn {
+            margin-top: 20px;
+            padding: 10px 25px;
+            background: #8a2be2;
+            border: none;
+            color: white;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
 
-    /* Controles Touch */
-    .dpad {
-      display: grid;
-      grid-template-columns: repeat(3, 60px);
-      grid-template-rows: repeat(3, 60px);
-      gap: 6px;
-      pointer-events: auto;
-    }
-
-    .dpad button {
-      background: rgba(0, 0, 0, 0.5);
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      color: white;
-      font-size: 22px;
-      border-radius: 12px;
-      font-weight: bold;
-      backdrop-filter: blur(4px);
-    }
-    .dpad button:active {
-      background: rgba(255, 255, 255, 0.4);
-    }
-
-    .action-buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      pointer-events: auto;
-    }
-
-    #speedometer {
-      font-size: 22px;
-      letter-spacing: 1px;
-      color: #00ffff;
-      text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
-    }
-
-    #instructions {
-      position: absolute;
-      top: 70px;
-      left: 15px;
-      color: #aaa;
-      font-size: 12px;
-      pointer-events: none;
-    }
-  </style>
-
-  <!-- Bibliotecas Three.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        #restart-btn:hover {
+            background: #9b4dff;
+            transform: scale(1.05);
+        }
+    </style>
 </head>
 <body>
 
-  <div id="canvas-container"></div>
-
-  <div class="ui-layer">
-    <div class="hud-top">
-      <button class="btn" id="btn-cam">📷 CAM (C)</button>
-      <div class="hud-card" id="speedometer">0 KM/H</div>
-      <button class="btn btn-action" id="btn-interact">🚗 Entrar/Sair (E)</button>
+    <div id="ui">
+        <div id="score">0</div>
     </div>
 
-    <div id="instructions">PC: WASD / Setas | Shift = Nitro | E = Entrar/Sair | C = Câmera</div>
-
-    <div class="hud-bottom">
-      <div class="dpad">
-        <div></div>
-        <button id="btn-up">▲</button>
-        <div></div>
-        <button id="btn-left">◀</button>
-        <button id="btn-down">▼</button>
-        <button id="btn-right">▶</button>
-      </div>
-
-      <div class="action-buttons">
-        <button class="btn btn-nitro" id="btn-nitro">⚡ NITRO</button>
-      </div>
+    <div id="game-over">
+        <h1>Fim de Jogo!</h1>
+        <p>Pontuação: <span id="final-score">0</span></p>
+        <button id="restart-btn">Tentar Novamente</button>
     </div>
-  </div>
 
-  <script>
-    // --- SINTETIZADOR DE ÁUDIO (FX Sonoros sem arquivos externos) ---
-    const AudioFX = {
-      ctx: null,
-      init() {
-        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-      },
-      playEngineSound(speed) {
-        if (!this.ctx) return;
-        // Modulação básica para efeito de áudio
-      },
-      playNitroSound() {
-        if (!this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.5);
-        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.5);
-      }
-    };
+    <canvas id="gameCanvas"></canvas>
 
-    // --- CENA BÁSICA E ILUMINAÇÃO ---
-    const container = document.getElementById('canvas-container');
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x68a0e5);
-    scene.fog = new THREE.FogExp2(0x68a0e5, 0.005);
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const gameOverElement = document.getElementById('game-over');
+        const finalScoreElement = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
 
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    container.appendChild(renderer.domElement);
+        // Configurações do Jogo
+        let canvasWidth = window.innerWidth;
+        let canvasHeight = window.innerHeight;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
 
-    // Luzes
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(ambientLight);
+        // Variáveis do Jogo
+        let score = 0;
+        let gameSpeed = 4;
+        let isGameOver = false;
+        let direction = 1; // 1 = Direita, -1 = Esquerda
+        let distanceTraveled = 0;
 
-    const sun = new THREE.DirectionalLight(0xffffff, 0.9);
-    sun.position.set(100, 150, 50);
-    sun.castShadow = true;
-    sun.shadow.mapSize.width = 2048;
-    sun.shadow.mapSize.height = 2048;
-    sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 400;
-    const d = 100;
-    sun.shadow.camera.left = -d;
-    sun.shadow.camera.right = d;
-    sun.shadow.camera.top = d;
-    sun.shadow.camera.bottom = -d;
-    scene.add(sun);
+        // O Jogador (Quadrado/Cobra)
+        const player = {
+            x: canvasWidth / 2,
+            y: canvasHeight / 2,
+            size: 20,
+            speedY: 0,
+            speedX: 0,
+            color: '#ffffff'
+        };
 
-    // --- MAPA / BASEPLATE LEGO + CIDADE ---
-    const mapGroup = new THREE.Group();
-    const mapSize = 300;
+        // Configuração da Parede (Zigue-Zague)
+        const wall = {
+            width: 40, // Espessura da parede
+            gap: 180,  // Espaço vazio para passar
+            offsetY: 0, // Deslocamento vertical da parede
+            points: [] // Pontos que formam a parede
+        };
 
-    // Chão Base (Baseplate Verde LEGO)
-    const baseGeo = new THREE.BoxGeometry(mapSize, 4, mapSize);
-    const baseMat = new THREE.MeshStandardMaterial({ color: 0x359e35, roughness: 0.6 });
-    const basePlate = new THREE.Mesh(baseGeo, baseMat);
-    basePlate.position.y = -2;
-    basePlate.receiveShadow = true;
-    mapGroup.add(basePlate);
-
-    // Pistas Asfaltadas Escuras
-    const roadMat = new THREE.MeshStandardMaterial({ color: 0x222225, roughness: 0.8 });
-    const roadMain = new THREE.Mesh(new THREE.PlaneGeometry(40, mapSize), roadMat);
-    roadMain.rotation.x = -Math.PI / 2;
-    roadMain.position.y = 0.02;
-    roadMain.receiveShadow = true;
-    mapGroup.add(roadMain);
-
-    const roadCross = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 40), roadMat);
-    roadCross.rotation.x = -Math.PI / 2;
-    roadCross.position.y = 0.02;
-    roadCross.receiveShadow = true;
-    mapGroup.add(roadCross);
-
-    // Studs LEGO (Pinos no chão fora da pista)
-    const studGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.25, 10);
-    const studMat = new THREE.MeshStandardMaterial({ color: 0x2d8a2d, roughness: 0.5 });
-    const studInstances = new THREE.InstancedMesh(studGeo, studMat, 2500);
-    let idx = 0;
-    const dummy = new THREE.Object3D();
-
-    for (let x = -mapSize/2 + 3; x < mapSize/2; x += 6) {
-      for (let z = -mapSize/2 + 3; z < mapSize/2; z += 6) {
-        if (Math.abs(x) > 22 && Math.abs(z) > 22) { // Não colocar pino na estrada
-          dummy.position.set(x, 0.1, z);
-          dummy.updateMatrix();
-          studInstances.setMatrixAt(idx++, dummy.matrix);
+        // Inicializa a parede
+        function initWall() {
+            wall.points = [];
+            wall.offsetY = 0;
+            // Cria uma linha reta inicial
+            for (let i = 0; i < 5; i++) {
+                wall.points.push({
+                    x: 0,
+                    y: canvasHeight / 2 + (i * 200)
+                });
+            }
         }
-      }
-    }
-    studInstances.receiveShadow = true;
-    mapGroup.add(studInstances);
 
-    // Rampa de Acrobacia (Stunt Jump)
-    const rampGeo = new THREE.BoxGeometry(12, 4, 15);
-    const rampMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.3 });
-    const ramp = new THREE.Mesh(rampGeo, rampMat);
-    ramp.position.set(0, 1, 40);
-    ramp.rotation.x = -0.25;
-    ramp.castShadow = true;
-    ramp.receiveShadow = true;
-    mapGroup.add(ramp);
+        // Gera novos segmentos de parede
+        function generateWallSegment() {
+            const lastPoint = wall.points[wall.points.length - 1];
+            const change = (Math.random() - 0.5) * 200; // Variação do zigue-zague
+            
+            let newY = lastPoint.y + change;
+            
+            // Limita para não sair da tela
+            if (newY < 100) newY = 100;
+            if (newY > canvasHeight - 100) newY = canvasHeight - 100;
 
-    // Prédios LEGO
-    const buildingColors = [0xde2b2b, 0x2b52de, 0xf0c419, 0xffffff, 0x9b2bde];
-    for (let i = 0; i < 16; i++) {
-      const h = 20 + Math.random() * 40;
-      const w = 15 + Math.random() * 10;
-      const bGeo = new THREE.BoxGeometry(w, h, w);
-      const bMat = new THREE.MeshStandardMaterial({ 
-        color: buildingColors[Math.floor(Math.random() * buildingColors.length)], 
-        roughness: 0.3 
-      });
-      const b = new THREE.Mesh(bGeo, bMat);
-      
-      const bx = (Math.random() > 0.5 ? 1 : -1) * (40 + Math.random() * 80);
-      const bz = (Math.random() > 0.5 ? 1 : -1) * (40 + Math.random() * 80);
-      b.position.set(bx, h/2, bz);
-      b.castShadow = true;
-      b.receiveShadow = true;
-      mapGroup.add(b);
-    }
-
-    scene.add(mapGroup);
-
-    // --- CARRO ECLIPSE DO BRIAN (VERDE TUNADO) ---
-    const car = new THREE.Group();
-
-    // Materiais
-    const limeMat = new THREE.MeshStandardMaterial({ color: 0x3be813, roughness: 0.2, metalness: 0.1 });
-    const darkCarbon = new THREE.MeshStandardMaterial({ color: 0x111113, roughness: 0.4 });
-    const glassMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1, transparent: true, opacity: 0.85 });
-    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, metalness: 0.9, roughness: 0.1 });
-    const neonCyan = new THREE.MeshBasicMaterial({ color: 0x00ffff });
-
-    // Chassis Base
-    const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.7, 4.8), limeMat);
-    chassis.position.y = 0.65;
-    chassis.castShadow = true;
-    car.add(chassis);
-
-    // Teto / Cabine
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.65, 2.3), glassMat);
-    cabin.position.set(0, 1.25, -0.2);
-    cabin.castShadow = true;
-    car.add(cabin);
-
-    // Capô Preto (Estilo fibra de carbono)
-    const hood = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 1.6), darkCarbon);
-    hood.position.set(0, 1.02, 1.3);
-    car.add(hood);
-
-    // Decalque Lateral / Saias
-    const skirtL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 3.5), darkCarbon);
-    skirtL.position.set(1.18, 0.4, 0);
-    const skirtR = skirtL.clone();
-    skirtR.position.x = -1.18;
-    car.add(skirtL, skirtR);
-
-    // Aerofólio Alto (Spoiler GT)
-    const spoilerBar = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 0.6), darkCarbon);
-    spoilerBar.position.set(0, 1.5, -2.1);
-    const mount1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.2), darkCarbon);
-    mount1.position.set(-0.8, 1.2, -2.1);
-    const mount2 = mount1.clone();
-    mount2.position.x = 0.8;
-    car.add(spoilerBar, mount1, mount2);
-
-    // Neon Neon Underglow
-    const neonPlate = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 4.2), neonCyan);
-    neonPlate.rotation.x = -Math.PI / 2;
-    neonPlate.position.y = 0.08;
-    car.add(neonPlate);
-
-    const neonLight = new THREE.PointLight(0x00ffff, 3, 7);
-    neonLight.position.y = 0.2;
-    car.add(neonLight);
-
-    // Rodas Tunadas com Aros Esportivos
-    const wheels = [];
-    const wheelGroup = new THREE.Group();
-    const wGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.35, 18);
-    wGeo.rotateZ(Math.PI / 2);
-
-    const rimGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.36, 6);
-    rimGeo.rotateZ(Math.PI / 2);
-
-    const wPositions = [
-      [-1.2, 0.45, 1.5], [1.2, 0.45, 1.5],
-      [-1.2, 0.45, -1.5], [1.2, 0.45, -1.5]
-    ];
-
-    wPositions.forEach(pos => {
-      const wMesh = new THREE.Mesh(wGeo, darkCarbon);
-      const rMesh = new THREE.Mesh(rimGeo, chromeMat);
-      const singleWheel = new THREE.Group();
-      singleWheel.add(wMesh, rMesh);
-      singleWheel.position.set(...pos);
-      singleWheel.castShadow = true;
-      wheels.push(singleWheel);
-      car.add(singleWheel);
-    });
-
-    // Escapamento Dual + Partículas de Nitro
-    const exhaustGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.4, 8);
-    exhaustGeo.rotateX(Math.PI / 2);
-    const exhaust = new THREE.Mesh(exhaustGeo, chromeMat);
-    exhaust.position.set(-0.6, 0.4, -2.4);
-    car.add(exhaust);
-
-    // Sistema de Partículas de Nitro (Fogo/Fumaça)
-    const particleCount = 40;
-    const pGeo = new THREE.BufferGeometry();
-    const pPos = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount * 3; i++) pPos[i] = 0;
-    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-    
-    const pMat = new THREE.PointsMaterial({
-      color: 0x00ffff,
-      size: 0.35,
-      transparent: true,
-      opacity: 0.8,
-      blending: THREE.AdditiveBlending
-    });
-    const nitroParticles = new THREE.Points(pGeo, pMat);
-    nitroParticles.visible = false;
-    car.add(nitroParticles);
-
-    car.position.set(0, 0.2, 0);
-    scene.add(car);
-
-    // --- PERSONAGEM LEGO / ROBLOX ---
-    const player = new THREE.Group();
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xffcd03, roughness: 0.3 });
-    const shirtMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
-    const bluePants = new THREE.MeshStandardMaterial({ color: 0x0033cc, roughness: 0.5 });
-
-    // Cabeça + Capacete
-    const pHead = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.45, 12), headMat);
-    pHead.position.y = 1.35;
-    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 12), limeMat);
-    helmet.position.y = 1.4;
-    player.add(pHead, helmet);
-
-    // Torso
-    const pTorso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.35), shirtMat);
-    pTorso.position.y = 0.8;
-    pTorso.castShadow = true;
-    player.add(pTorso);
-
-    // Braços e Pernas Articulados
-    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.65, 0.2), shirtMat);
-    armL.position.set(-0.48, 0.8, 0);
-    const armR = armL.clone();
-    armR.position.x = 0.48;
-    player.add(armL, armR);
-
-    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.65, 0.3), bluePants);
-    legL.position.set(-0.2, 0.3, 0);
-    const legR = legL.clone();
-    legR.position.x = 0.2;
-    player.add(legL, legR);
-
-    player.position.set(4, 0, 4);
-    scene.add(player);
-
-    // --- SISTEMA DE CONTROLES E FÍSICA ---
-    let isDriving = false;
-    let cameraMode = 0; // 0: 3ª Pessoa Chase, 1: 1ª Pessoa Cockpit, 2: Visão de Cima
-
-    // Física do Carro
-    let speed = 0;
-    let maxSpeedNormal = 0.7;
-    let maxSpeedNitro = 1.35;
-    let acceleration = 0.02;
-    let friction = 0.965;
-    let steering = 0;
-    let carRotation = 0;
-
-    // Teclado
-    const keys = { w: false, a: false, s: false, d: false, shift: false };
-
-    window.addEventListener('keydown', (e) => {
-      AudioFX.init();
-      const k = e.key.toLowerCase();
-      if (k === 'w' || e.key === 'ArrowUp') keys.w = true;
-      if (k === 'a' || e.key === 'ArrowLeft') keys.a = true;
-      if (k === 's' || e.key === 'ArrowDown') keys.s = true;
-      if (k === 'd' || e.key === 'ArrowRight') keys.d = true;
-      if (e.key === 'Shift') keys.shift = true;
-      if (k === 'e') toggleDrive();
-      if (k === 'c') cycleCamera();
-    });
-
-    window.addEventListener('keyup', (e) => {
-      const k = e.key.toLowerCase();
-      if (k === 'w' || e.key === 'ArrowUp') keys.w = false;
-      if (k === 'a' || e.key === 'ArrowLeft') keys.a = false;
-      if (k === 's' || e.key === 'ArrowDown') keys.s = false;
-      if (k === 'd' || e.key === 'ArrowRight') keys.d = false;
-      if (e.key === 'Shift') keys.shift = false;
-    });
-
-    // Touch Buttons Setup
-    const bindTouch = (id, key) => {
-      const el = document.getElementById(id);
-      const start = (e) => { e.preventDefault(); AudioFX.init(); keys[key] = true; };
-      const end = (e) => { e.preventDefault(); keys[key] = false; };
-      el.addEventListener('touchstart', start);
-      el.addEventListener('touchend', end);
-      el.addEventListener('mousedown', start);
-      el.addEventListener('mouseup', end);
-    };
-
-    bindTouch('btn-up', 'w');
-    bindTouch('btn-left', 'a');
-    bindTouch('btn-down', 's');
-    bindTouch('btn-right', 'd');
-    bindTouch('btn-nitro', 'shift');
-
-    document.getElementById('btn-interact').addEventListener('click', () => { AudioFX.init(); toggleDrive(); });
-    document.getElementById('btn-cam').addEventListener('click', () => { AudioFX.init(); cycleCamera(); });
-
-    function toggleDrive() {
-      if (!isDriving) {
-        if (player.position.distanceTo(car.position) < 5) {
-          isDriving = true;
-          player.visible = false;
+            wall.points.push({
+                x: lastPoint.x,
+                y: newY
+            });
         }
-      } else {
-        isDriving = false;
-        player.visible = true;
-        player.position.set(car.position.x + 2.5, 0, car.position.z);
-      }
-    }
 
-    function cycleCamera() {
-      cameraMode = (cameraMode + 1) % 3;
-    }
+        // Controles
+        function handleInput(e) {
+            if (isGameOver) return;
+            // Inverte a direção ao clicar ou tocar
+            direction *= -1;
+        }
 
-    // Variáveis da Câmera Suave
-    const targetCamPos = new THREE.Vector3();
-    const currentCamPos = new THREE.Vector3(0, 10, -10);
+        window.addEventListener('mousedown', handleInput);
+        window.addEventListener('touchstart', handleInput, { passive: false });
 
-    // --- LOOP DE ANIMAÇÃO ---
-    let animTime = 0;
+        // Lógica de Atualização
+        function update() {
+            if (isGameOver) return;
 
-    function animate() {
-      requestAnimationFrame(animate);
-      animTime += 0.05;
+            // Move o jogador para frente (na verdade, movemos o mundo para trás)
+            // O jogador mantém uma posição X fixa e o mundo se move
+            distanceTraveled += gameSpeed;
+            score = Math.floor(distanceTraveled / 10);
+            scoreElement.innerText = score;
 
-      if (isDriving) {
-        // Aceleração & Nitro
-        const topSpd = keys.shift ? maxSpeedNitro : maxSpeedNormal;
+            // A cada X pixels, gera um novo segmento de parede
+            if (distanceTraveled % 100 === 0) {
+                generateWallSegment();
+            }
+
+            // Física do jogador (movimento em Y baseado na direção)
+            // Se direction é 1 (direita), o jogador vai para baixo? 
+            // No jogo original, o jogador segue a linha. Vamos simular isso.
+            // A linha tem uma inclinação. O jogador se move perpendicular a ela.
+            
+            // Simplificação: O jogador "cai" na direção da linha.
+            // Vamos calcular a posição Y do jogador baseada na parede.
+            
+            // Encontra o segmento da parede onde o jogador está
+            // O jogador está sempre em player.x (que é fixo na tela, mas o mundo se move)
+            // Na verdade, vamos mover a parede para a esquerda e o jogador fica parado em X.
+            
+            // Atualiza a posição da parede (movimento para a esquerda)
+            for (let i = 0; i < wall.points.length; i++) {
+                wall.points[i].x -= gameSpeed;
+            }
+
+            // Remove pontos antigos que saíram da tela
+            if (wall.points.length > 0 && wall.points[0].x < -100) {
+                wall.points.shift();
+            }
+
+            // Atualiza a posição Y do jogador baseada na direção
+            // Se direction é 1, ele sobe? Não, ele desce na diagonal.
+            // Vamos usar uma velocidade vertical.
+            const verticalSpeed = gameSpeed * 0.8; // Ajuste para a inclinação
+
+            if (direction === 1) {
+                player.y += verticalSpeed;
+            } else {
+                player.y -= verticalSpeed;
+            }
+
+            // Colisão com as bordas da tela (Topo e Fundo)
+            // O jogador não pode sair da tela
+            if (player.y < 0) {
+                player.y = 0;
+                // Se bater no topo, game over ou apenas inverte?
+                // No jogo original, se bater na parede, game over.
+                // Aqui, se bater no topo/fundo da tela, é game over.
+                gameOver();
+            }
+            if (player.y > canvasHeight) {
+                player.y = canvasHeight;
+                gameOver();
+            }
+
+            // Lógica de Colisão com a Parede
+            // A parede é uma série de linhas. O jogador é um ponto.
+            // Precisamos verificar se o jogador está dentro do "gap" da parede.
+            
+            // Vamos simplificar: A parede é uma linha contínua. O jogador deve estar 
+            // em cima da linha. Se ele sair da linha, game over.
+            
+            // Encontra a posição Y da parede no X do jogador
+            let wallY = getWallY(player.x);
+            
+            // Se a diferença entre o Y do jogador e o Y da parede for maior que o gap, game over
+            // Na verdade, o jogador deve estar "colado" na parede.
+            // Vamos forçar o jogador a seguir a parede.
+            
+            // Ajuste fino: O jogador segue a parede.
+            // Se direction é 1, ele está na parte de baixo da linha? 
+            // Vamos fazer o jogador seguir a linha exatamente.
+            
+            // Atualiza a posição Y do jogador para seguir a parede
+            // Isso é uma simplificação. O movimento é diagonal.
+            // player.y = wallY; // Isso faria o jogador teleportar.
+            
+            // Vamos verificar colisão real.
+            // Se o jogador estiver muito longe da parede, game over.
+            // A parede tem uma espessura. O jogador deve estar dentro dela.
+            
+            // Nota: A lógica de colisão exata de um jogo de zigue-zague é complexa.
+            // Vamos usar uma abordagem mais simples:
+            // O jogador se move em diagonal. Se ele tocar na borda da tela, game over.
+            // Se ele passar por um "buraco" na parede, game over.
+            
+            // Vamos desenhar a parede e o jogador, e verificar se o jogador está
+            // dentro da área permitida.
+            
+            // Para simplificar, vamos apenas verificar se o jogador está seguindo
+            // a linha corretamente. Se ele se afastar muito, game over.
+            
+            // Como o jogador se move em diagonal, ele naturalmente segue a linha
+            // se a velocidade for correta.
+            
+            // Vamos verificar se o jogador está "dentro" da parede.
+            // A parede é uma linha grossa. O jogador é um quadrado.
+            // Se o jogador estiver fora da linha, game over.
+            
+            // Simplificação final: O jogador só pode se mover para cima/baixo.
+            // A parede se move para a esquerda.
+            // A colisão é: Se o jogador não estiver na mesma "inclinação" da parede.
+            
+            // Vamos usar uma verificação de distância.
+            // Se a distância vertical entre o jogador e a parede for maior que X, game over.
+            
+            // NOTA: Esta é uma versão simplificada. Um jogo real teria física mais complexa.
+            
+            // Vamos apenas verificar se o jogador saiu da tela.
+            // E vamos desenhar a parede para parecer um zigue-zague.
+            
+            // Atualiza a posição da parede para o próximo frame
+            // (Já feito acima, movendo os pontos)
+        }
+
+        // Função auxiliar para pegar o Y da parede em um X específico
+        function getWallY(x) {
+            // Encontra o segmento onde x está
+            for (let i = 0; i < wall.points.length - 1; i++) {
+                const p1 = wall.points[i];
+                const p2 = wall.points[i + 1];
+                
+                if (x >= p1.x && x <= p2.x) {
+                    // Interpolação linear
+                    const t = (x - p1.x) / (p2.x - p1.x);
+                    return p1.y + (p2.y - p1.y) * t;
+                }
+            }
+            return canvasHeight / 2; // Fallback
+        }
+
+        // Lógica de Game Over
+        function gameOver() {
+            isGameOver = true;
+            finalScoreElement.innerText = score;
+            gameOverElement.style.display = 'flex';
+        }
+
+        // Reiniciar Jogo
+        function restartGame() {
+            score = 0;
+            distanceTraveled = 0;
+            isGameOver = false;
+            direction = 1;
+            player.x = canvasWidth / 2;
+            player.y = canvasHeight / 2;
+            gameSpeed = 4;
+            
+            initWall();
+            gameOverElement.style.display = 'none';
+            scoreElement.innerText = score;
+            
+            // Loop principal
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Desenho
+        function draw() {
+            // Limpa a tela
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+            // Desenha o fundo (gradiente)
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+            gradient.addColorStop(0, '#1a1a2e');
+            gradient.addColorStop(1, '#0d0d1a');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+            // Desenha a Parede (Zigue-Zague)
+            ctx.beginPath();
+            ctx.lineWidth = wall.width;
+            ctx.strokeStyle = '#8a2be2'; // Roxo
+            ctx.shadowColor = '#8a2be2';
+            ctx.shadowBlur = 20;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            if (wall.points.length > 1) {
+                ctx.moveTo(wall.points[0].x, wall.points[0].y);
+                for (let i = 1; i < wall.points.length; i++) {
+                    ctx.lineTo(wall.points[i].x, wall.points[i].y);
+                }
+            }
+            ctx.stroke();
+
+            // Desenha o "Brilho" interno da parede (efeito neon)
+            ctx.beginPath();
+            ctx.lineWidth = wall.width - 10;
+            ctx.strokeStyle = '#ffffff';
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 10;
+            if (wall.points.length > 1) {
+                ctx.moveTo(wall.points[0].x, wall.points[0].y);
+                for (let i = 1; i < wall.points.length; i++) {
+                    ctx.lineTo(wall.points[i].x, wall.points[i].y);
+                }
+            }
+            ctx.stroke();
+
+            // Desenha o Jogador
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            // Desenha um quadrado rotacionado para parecer uma seta
+            ctx.translate(player.x, player.y);
+            ctx.rotate(direction === 1 ? Math.PI / 4 : -Math.PI / 4);
+            ctx.fillRect(-player.size / 2, -player.size / 2, player.size, player.size);
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+        }
+
+        // Loop Principal
+        function gameLoop() {
+            if (isGameOver) return;
+
+            update();
+            draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Inicialização
+        initWall();
+        // Adiciona alguns pontos iniciais para a parede não começar vazia
+        for(let i=0; i<10; i++) generateWallSegment();
         
-        if (keys.shift && keys.w) {
-          nitroParticles.visible = true;
-          // Animar partículas de nitro
-          const positions = nitroParticles.geometry.attributes.position.array;
-          for(let i = 0; i < particleCount * 3; i += 3) {
-            positions[i] = (Math.random() - 0.5) * 0.3;
-            positions[i+1] = (Math.random() - 0.5) * 0.3;
-            positions[i+2] = -2.4 - Math.random() * 1.5;
-          }
-          nitroParticles.geometry.attributes.position.needsUpdate = true;
-          if (Math.random() > 0.7) AudioFX.playNitroSound();
-        } else {
-          nitroParticles.visible = false;
-        }
+        // Ajusta a posição inicial do jogador para ficar na parede
+        player.y = getWallY(player.x);
 
-        if (keys.w) speed = Math.min(speed + acceleration, topSpd);
-        else if (keys.s) speed = Math.max(speed - acceleration, -maxSpeedNormal * 0.4);
-        else speed *= friction;
+        // Inicia o jogo
+        gameLoop();
 
-        // Direção (Steering)
-        if (Math.abs(speed) > 0.005) {
-          const dir = speed > 0 ? 1 : -1;
-          if (keys.a) carRotation += 0.035 * dir;
-          if (keys.d) carRotation -= 0.035 * dir;
-        }
+        // Ajuste de redimensionamento da tela
+        window.addEventListener('resize', () => {
+            canvasWidth = window.innerWidth;
+            canvasHeight = window.innerHeight;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+        });
 
-        car.rotation.y = carRotation;
+        // Botão de reiniciar
+        restartBtn.addEventListener('click', restartGame);
 
-        // Efeito Visual de Suspensão / Inclinada nas curvas
-        const roll = (keys.a ? 0.05 : 0) + (keys.d ? -0.05 : 0);
-        car.rotation.z = THREE.MathUtils.lerp(car.rotation.z, roll, 0.1);
-
-        // Movimento
-        car.position.x += Math.sin(carRotation) * speed;
-        car.position.z += Math.cos(carRotation) * speed;
-
-        // Giro das Rodas
-        wheels.forEach(w => w.children[0].rotation.x += speed * 1.5);
-
-        // Atualizar Velocímetro UI
-        document.getElementById('speedometer').innerText = `${Math.round(Math.abs(speed) * 160)} KM/H`;
-
-        // Lógica de Câmera Suave
-        if (cameraMode === 0) { // 3ª Pessoa Chase
-          const offset = new THREE.Vector3(0, 4, -9).applyAxisAngle(new THREE.Vector3(0, 1, 0), carRotation);
-          targetCamPos.copy(car.position).add(offset);
-          currentCamPos.lerp(targetCamPos, 0.1);
-          camera.position.copy(currentCamPos);
-          camera.lookAt(car.position.x, car.position.y + 1.2, car.position.z);
-
-        } else if (cameraMode === 1) { // 1ª Pessoa Cockpit
-          const offset = new THREE.Vector3(0, 1.2, 0.1).applyAxisAngle(new THREE.Vector3(0, 1, 0), carRotation);
-          camera.position.copy(car.position).add(offset);
-          const lookTarget = car.position.clone().add(new THREE.Vector3(0, 1.2, 10).applyAxisAngle(new THREE.Vector3(0, 1, 0), carRotation));
-          camera.lookAt(lookTarget);
-
-        } else if (cameraMode === 2) { // Visão de Cima (Top-down)
-          camera.position.set(car.position.x, car.position.y + 25, car.position.z - 1);
-          camera.lookAt(car.position);
-        }
-
-      } else {
-        // Lógica de Movimento a Pé
-        let mx = 0, mz = 0;
-        if (keys.w) mz += 1;
-        if (keys.s) mz -= 1;
-        if (keys.a) mx += 1;
-        if (keys.d) mx -= 1;
-
-        if (mx !== 0 || mz !== 0) {
-          const pAngle = Math.atan2(mx, mz);
-          player.rotation.y = pAngle;
-          player.position.x += Math.sin(pAngle) * 0.16;
-          player.position.z += Math.cos(pAngle) * 0.16;
-
-          // Animação das pernas/braços andando
-          legL.rotation.x = Math.sin(animTime * 3) * 0.6;
-          legR.rotation.x = -Math.sin(animTime * 3) * 0.6;
-          armL.rotation.x = -Math.sin(animTime * 3) * 0.6;
-          armR.rotation.x = Math.sin(animTime * 3) * 0.6;
-        } else {
-          legL.rotation.x = 0;
-          legR.rotation.x = 0;
-          armL.rotation.x = 0;
-          armR.rotation.x = 0;
-        }
-
-        document.getElementById('speedometer').innerText = `A PÉ`;
-
-        // Câmera do Jogador
-        camera.position.set(player.position.x, player.position.y + 5, player.position.z - 9);
-        camera.lookAt(player.position.x, player.position.y + 1, player.position.z);
-      }
-
-      renderer.render(scene, camera);
-    }
-
-    // Redimensionamento
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    animate();
-  </script>
+    </script>
 </body>
 </html>
